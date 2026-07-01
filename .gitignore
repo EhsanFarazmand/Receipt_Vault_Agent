@@ -1,0 +1,52 @@
+# ---- Secrets: NEVER commit these (competition hard rule + security pillar) ----
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+credentials.json
+token.json
+
+# ---- Local runtime data (the vault + ledger live on the user's machine) ----
+vault/
+inbox/
+*.sqlite
+*.sqlite3
+*.db
+ledger_export.xlsx
+artifacts/
+drafts/
+audit.log
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- uv / packaging ----
+# NOTE: uv.lock IS committed (slopsquatting / supply-chain defense — pinned deps)
+
+# ---- IDE / OS ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---- Google Antigravity / ADK local caches ----
+.adk/
+.agents/
+
+# ---- Claude ----
+CLAUDE.md

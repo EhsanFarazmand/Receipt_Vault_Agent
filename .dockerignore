@@ -1,0 +1,20 @@
+# Keep the image small and secret-free.
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+tests/
+Plans/
+sample_receipts/
+vault/
+inbox/
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+artifacts/

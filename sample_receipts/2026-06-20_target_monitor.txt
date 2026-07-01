@@ -1,0 +1,9 @@
+TARGET
+1200 Store Blvd, Anytown
+Date: 2026-06-20
+--------------------------------
+Dell 27" Monitor S2725     299.00
+--------------------------------
+Total: 299.00
+Paid: VISA ****1234
+Price-protection: 14 days

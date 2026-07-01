@@ -1,0 +1,9 @@
+TARGET
+1200 Store Blvd, Anytown
+Date: 2026-06-14
+--------------------------------
+Ninja Blender BL610        79.99
+--------------------------------
+Total: 79.99
+Paid: VISA ****1234
+Return policy: 90 days with receipt
