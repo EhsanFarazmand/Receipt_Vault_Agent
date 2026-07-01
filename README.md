@@ -96,9 +96,13 @@ uv run python scripts/daily_watchdog.py 2026-07-01
 #   → raises price-drop (monitor -$40), warranty-expiring + recall (headphones)
 
 # 5. Deterministic tests (code correctness) and behavioural eval (agent quality)
-uv run pytest -q
-agents-cli eval run --config tests/eval/eval_config.yaml
+uv run pytest -q                                          # 21 tests, no LLM
+uv run python scripts/local_eval.py --model gemini-flash-lite-latest --delay 20
+#   local AI-Studio eval (no GCP). agents-cli eval also works if you have a GCP project:
+#   agents-cli eval run --config tests/eval/eval_config.yaml
 ```
+
+See [docs/EVALUATION.md](docs/EVALUATION.md) for the eval methodology and results (21 pytest + 5/5 agent-behaviour cases).
 
 Register the daily sweep with your OS scheduler (Task Scheduler / cron) so the agent
 keeps watch — snippets are in [scripts/daily_watchdog.py](scripts/daily_watchdog.py).
@@ -116,7 +120,7 @@ keeps watch — snippets are in [scripts/daily_watchdog.py](scripts/daily_watchd
 ## Testing philosophy
 
 - `uv run pytest` — deterministic **code correctness** (sanitizer, policy gates, window math, ledger dedupe). 21 tests, no LLM.
-- `agents-cli eval` — non-deterministic **agent behaviour** (routing, tool use, safety, approval gate). See [tests/eval/](tests/eval/).
+- `scripts/local_eval.py` — non-deterministic **agent behaviour** on the real multi-agent system, local-first via the ADK `InMemoryRunner` (no GCP needed). 5/5 cases pass. `agents-cli eval` is the Vertex-based equivalent if you have a GCP project. See [docs/EVALUATION.md](docs/EVALUATION.md).
 
 Behavioural rules are pinned as Gherkin in [specs/](specs/) — the acceptance tests and the eval set at once.
 
