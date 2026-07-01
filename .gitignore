@@ -44,9 +44,10 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# ---- Google Antigravity / ADK local caches ----
+# ---- Google Antigravity / ADK / agents-cli local caches & runtime ----
 .adk/
 .agents/
+.google-agents-cli/
 
 # ---- Claude ----
 CLAUDE.md

@@ -193,8 +193,9 @@ try:  # pragma: no cover - exercised only when ADK is present
             super().__init__(name="policy_server")
             self._server = PolicyServer()
 
-        async def before_tool_callback(self, *, tool, tool_context, args):  # noqa: ANN001
-            verdict = self._server.evaluate(tool.name, args or {})
+        async def before_tool_callback(self, *, tool, tool_args, tool_context):  # noqa: ANN001
+            # ADK 2.0 passes the tool's arguments as `tool_args` (keyword-only).
+            verdict = self._server.evaluate(tool.name, tool_args or {})
             _audit(tool.name, verdict)
             if verdict.decision is Decision.BLOCK:
                 return {"status": "blocked", "reason": verdict.reason}
