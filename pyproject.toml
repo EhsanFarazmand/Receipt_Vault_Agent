@@ -3,7 +3,7 @@ name = "receipt-vault"
 version = "0.1.0"
 description = "Receipt Vault — an ADK multi-agent that watches return windows, warranties, recalls & price drops and acts before they expire."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.14"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Receipt Vault" }]
 
@@ -12,19 +12,23 @@ authors = [{ name = "Receipt Vault" }]
 # defense (course: 7-Pillar Security, Day 4). `uv.lock` pins exact hashes on top of
 # these ranges and IS committed to the repo. Never add a package an agent "guessed"
 # without verifying it against a known-good registry first.
+#
+# google-adk 2.x is the version the installed agents-cli (0.5.0) scaffolds against.
 # ---------------------------------------------------------------------------
 dependencies = [
-    "google-adk>=1.0.0,<2.0.0",       # Agent Development Kit (multi-agent core)
-    "google-genai>=1.0.0,<2.0.0",     # Gemini client used by ADK
-    "pydantic>=2.6.0,<3.0.0",         # Typed schemas for tool I/O and action events
-    "python-dateutil>=2.9.0,<3.0.0",  # Robust date parsing for return/warranty windows
-    "openpyxl>=3.1.0,<4.0.0",         # Exported .xlsx ledger view
-    "mcp>=1.0.0,<2.0.0",              # First-party Receipt Vault MCP server (stdio)
+    "google-adk>=2.0.0,<3.0.0",   # Agent Development Kit (multi-agent core)
+    "openpyxl>=3.1.0,<4.0.0",     # exported .xlsx ledger view (domain/ledger.py)
+    "mcp>=1.0.0,<2.0.0",          # first-party Receipt Vault MCP server (mcp_server/)
 ]
 
 [project.optional-dependencies]
+eval = [
+    "google-adk[eval]>=2.0.0,<3.0.0",   # LLM-as-judge eval metrics
+]
+
+[dependency-groups]
 dev = [
-    "pytest>=8.0.0,<9.0.0",
+    "pytest>=8.0.0,<10.0.0",
     "ruff>=0.6.0,<1.0.0",
 ]
 
@@ -32,19 +36,21 @@ dev = [
 # Convenience entrypoint for the first-party MCP server (see mcp_server/server.py).
 receipt-vault-mcp = "mcp_server.server:main"
 
-[tool.setuptools]
-# The ADK agent package the runner discovers. `App(name="app")` must match this.
-packages = ["app"]
-
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Both the ADK agent package and the first-party MCP server are installed.
+packages = ["app", "mcp_server"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.pytest.ini_options]
+# pythonpath="." lets pytest import `app` without an editable install.
+pythonpath = "."
 testpaths = ["tests"]
 # Only deterministic code/contract tests run under pytest. Agent-behavior validation
 # lives in `agents-cli eval`, NOT pytest (LLM output is non-deterministic).

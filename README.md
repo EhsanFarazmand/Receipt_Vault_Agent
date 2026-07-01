@@ -79,10 +79,10 @@ Prereqs: Python 3.10+, [`uv`](https://docs.astral.sh/uv/), and the `agents-cli`
 (`uv tool install google-agents-cli`). A Google AI Studio key for the model.
 
 ```bash
-# 1. Configure (NO secrets in code — copy the template and fill it in)
-cp .env.example .env           # then set GOOGLE_API_KEY
+# 1. Configure (NO secrets in code). ADK loads the AGENT dir's env file — app/.env.
+cp app/.env.example app/.env   # then set GOOGLE_API_KEY  (Windows: copy app\.env.example app\.env)
 
-# 2. Install
+# 2. Install (generates uv.lock — commit it: real supply-chain pinning)
 uv sync
 
 # 3. Seed the demo ledger from the synthetic sample receipts
