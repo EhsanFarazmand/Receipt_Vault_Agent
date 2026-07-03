@@ -4,6 +4,8 @@
 
 **Track:** Concierge Agents · Kaggle *AI Agents: Intensive Vibe Coding* Capstone with Google
 
+**📹 Demo video:** [Watch the 5-minute walkthrough](https://youtu.be/BAWezTeheWs)
+
 > **Wow moment:** Drop a shoebox of receipt photos in a folder. Seconds later you have a searchable ledger **and** a nudge:
 > *"You can still return the blender for 6 more days — and it's $18 cheaper now. Want me to file the price-adjustment too?"*
 
@@ -53,7 +55,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full data flow and security mod
 | **Agent skills** | [`skills/`](skills/) — 4 `SKILL.md` modules with progressive disclosure + Read/Draft/Action tiers. |
 | **Security** | [`app/security/sanitize.py`](app/security/sanitize.py) (PII redaction + prompt-injection), [`app/security/audit.py`](app/security/audit.py) (audit trail), [`app/policy/policy_server.py`](app/policy/policy_server.py) (structural + semantic gating, Vibe Diff). |
 | **Deployability** | Local-first single command **plus a verified Cloud Run deploy** (private, Vertex-backed) — [`Dockerfile`](Dockerfile) + Terraform under [`deployment/`](deployment/); daily sweep via [`scripts/daily_sweep.py`](scripts/daily_sweep.py). |
-| **Antigravity / Spec-driven** | Gherkin specs in [`specs/receipt_vault.feature`](specs/receipt_vault.feature) drive the build; shown in the video. |
+| **Antigravity / Spec-driven** | Gherkin specs in [`specs/receipt_vault.feature`](specs/receipt_vault.feature) drive the build; shown in the [demo video](https://youtu.be/BAWezTeheWs). |
 
 ## Quickstart (local-first)
 
