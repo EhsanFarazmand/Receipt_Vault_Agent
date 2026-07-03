@@ -88,6 +88,12 @@ def upsert_entry(entry: dict) -> dict:
     values = {c: entry.get(c) for c in _COLUMNS}
     values["items_json"] = json.dumps(entry.get("items", []))
     values["returnable"] = 1 if entry.get("returnable") else 0
+    # Defense-in-depth: sqlite can only bind scalars. If any column value is
+    # still a dict/list (e.g. the model handed back a structured `item`), store
+    # its JSON rather than crash the whole write with a ProgrammingError.
+    for _col, _val in values.items():
+        if isinstance(_val, (dict, list)):
+            values[_col] = json.dumps(_val)
     # Default status explicitly: passing None here would store SQL NULL and
     # bypass the column's DEFAULT 'open', hiding the row from the daily sweep.
     values["status"] = entry.get("status") or "open"

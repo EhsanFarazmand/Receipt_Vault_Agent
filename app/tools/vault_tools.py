@@ -160,6 +160,29 @@ def _max_decimal(text: str) -> str | None:
 # --------------------------------------------------------------------------- #
 # Ledger (Action-local / Read tier)
 # --------------------------------------------------------------------------- #
+def _item_text(value) -> str | None:
+    """Coerce an item value down to a single human-readable string.
+
+    The model may hand `item` back as a bare string, a dict
+    (e.g. {"name": "blender"}), or `items` as a list of such dicts. The ledger's
+    `item` column is TEXT, so anything non-scalar must be reduced to a name-like
+    string before it is bound — otherwise sqlite raises
+    "type 'dict' is not supported". Returns None when nothing usable is present.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, list):
+        return _item_text(value[0]) if value else None
+    if isinstance(value, dict):
+        for key in ("name", "item", "description", "product", "title", "label"):
+            if value.get(key):
+                return _item_text(value.get(key))
+        return None
+    return str(value)
+
+
 def _normalize_entry(entry: dict) -> dict:
     """Make a ledger entry robust to however the caller (Intake tool or the LLM
     directly) named its fields, and backfill what the Watchdog needs.
@@ -183,9 +206,9 @@ def _normalize_entry(entry: dict) -> dict:
             e["total"] = float(e["total"])
     except (TypeError, ValueError):
         e["total"] = None
-    if not e.get("item"):
-        items = e.get("items")
-        e["item"] = (items[0] if isinstance(items, list) and items else e.get("product"))
+    # `item` may arrive as a string, a dict, or via `items`/`product`. Reduce it
+    # to a single string so the TEXT column can bind it (dict -> name-like value).
+    e["item"] = _item_text(e.get("item") or e.get("items") or e.get("product"))
     if e.get("returnable") is None:
         e["returnable"] = True
 

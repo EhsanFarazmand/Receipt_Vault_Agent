@@ -64,7 +64,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full data flow and security mod
 cp .env.example .env          # add your GOOGLE_API_KEY (AI Studio) — never commit .env
 uv sync                       # install deps into .venv
 
-# 1. Prove the logic (no model / no credentials needed) — 23 unit tests
+# 1. Prove the logic (no model / no credentials needed) — 24 unit tests
 uv run pytest tests/unit -q
 
 # 2. Seed synthetic demo receipts (dates relative to today, no real PII)
@@ -90,7 +90,7 @@ uv run python -m mcp_server.server
 ## Evaluation (tests-as-eval)
 
 The Gherkin scenarios are both acceptance tests and the eval set.
-- **Deterministic logic** → `uv run pytest tests/unit` (23 tests: window math, sanitizer, policy gate, ledger dedupe/sweep).
+- **Deterministic logic** → `uv run pytest tests/unit` (24 tests: window math, sanitizer, policy gate, ledger dedupe/sweep).
 - **Agent behaviour** → seed the ledger, then:
   ```bash
   uv run python -m scripts.seed_demo
@@ -145,7 +145,7 @@ skills/                 4 SKILL.md modules (progressive disclosure, tiers)
 specs/                  Gherkin (acceptance = eval)
 scripts/                seed_demo · daily_sweep (scheduler entrypoint)
 sample_receipts/        synthetic receipts (incl. an injection test), no real PII
-tests/unit/             23 pure-logic tests mirroring the Gherkin scenarios
+tests/unit/             24 pure-logic tests mirroring the Gherkin scenarios
 deployment/             Cloud Run Terraform (single-project) from `scaffold enhance`
 DEMO.md                 test + demo runbook: seed prompts, capability sequence, video beats
 ARCHITECTURE.md         data flow + 7-pillar security model + deployment notes

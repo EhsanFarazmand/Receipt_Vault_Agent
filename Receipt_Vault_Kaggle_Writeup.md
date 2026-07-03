@@ -65,7 +65,7 @@ The capstone asks for at least three of the six course concepts. Receipt Vault i
 
 ## What's built and verified
 
-This is a runnable project, not a mockup. The ADK multi-agent system (orchestrator + four sub-agents), the first-party MCP server, the four skills, the sanitizer, and the Policy Server all exist in code, scaffolded with `agents-cli` and iterated in the ADK workflow. **23 unit tests mirror the Gherkin specs and pass.** The agentic core runs with no LLM at all (`scripts/daily_sweep.py`), and the prompt-injection defense and the human-approval (Vibe Diff) gate were demonstrated end-to-end against the live model and again on the private Cloud Run deployment. Where a capability is production-facing rather than shipped — image/PDF OCR, live Gmail/Calendar sends — the architecture, tiers, and gates are in place while the current path is text/stubbed; nothing sends without the approval gate.
+This is a runnable project, not a mockup. The ADK multi-agent system (orchestrator + four sub-agents), the first-party MCP server, the four skills, the sanitizer, and the Policy Server all exist in code, scaffolded with `agents-cli` and iterated in the ADK workflow. **24 unit tests mirror the Gherkin specs and pass.** The agentic core runs with no LLM at all (`scripts/daily_sweep.py`), and the prompt-injection defense and the human-approval (Vibe Diff) gate were demonstrated end-to-end against the live model and again on the private Cloud Run deployment. Where a capability is production-facing rather than shipped — image/PDF OCR, live Gmail/Calendar sends — the architecture, tiers, and gates are in place while the current path is text/stubbed; nothing sends without the approval gate.
 
 ## Spec-driven development
 
