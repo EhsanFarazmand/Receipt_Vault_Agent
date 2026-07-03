@@ -49,7 +49,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full data flow and security mod
 | Concept | Where in this repo |
 | :-- | :-- |
 | **Multi-agent (ADK)** | [`app/agent.py`](app/agent.py) (Orchestrator + `sub_agents`) and [`app/sub_agents/`](app/sub_agents/) (4 specialists, factory functions, per-agent tier). |
-| **MCP server** | First-party [`mcp_server/server.py`](mcp_server/server.py) (FastMCP, the "USB-C" tool surface). Consumes external Gmail/Calendar/Filesystem MCPs for outbound (see ARCHITECTURE). |
+| **MCP server** | First-party [`mcp_server/server.py`](mcp_server/server.py) (FastMCP, the "USB-C" tool surface). Designed to consume external Gmail/Calendar/Filesystem MCPs for outbound (wire-in point in [`send_action`](app/tools/vault_tools.py); see ARCHITECTURE). |
 | **Agent skills** | [`skills/`](skills/) — 4 `SKILL.md` modules with progressive disclosure + Read/Draft/Action tiers. |
 | **Security** | [`app/security/sanitize.py`](app/security/sanitize.py) (PII redaction + prompt-injection), [`app/security/audit.py`](app/security/audit.py) (audit trail), [`app/policy/policy_server.py`](app/policy/policy_server.py) (structural + semantic gating, Vibe Diff). |
 | **Deployability** | Local-first single command **plus a verified Cloud Run deploy** (private, Vertex-backed) — [`Dockerfile`](Dockerfile) + Terraform under [`deployment/`](deployment/); daily sweep via [`scripts/daily_sweep.py`](scripts/daily_sweep.py). |
@@ -62,7 +62,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full data flow and security mod
 cp .env.example .env          # add your GOOGLE_API_KEY (AI Studio) — never commit .env
 uv sync                       # install deps into .venv
 
-# 1. Prove the logic (no model / no credentials needed) — 24 unit tests
+# 1. Prove the logic (no model / no credentials needed) — 23 unit tests
 uv run pytest tests/unit -q
 
 # 2. Seed synthetic demo receipts (dates relative to today, no real PII)
@@ -88,7 +88,7 @@ uv run python -m mcp_server.server
 ## Evaluation (tests-as-eval)
 
 The Gherkin scenarios are both acceptance tests and the eval set.
-- **Deterministic logic** → `uv run pytest tests/unit` (24 tests: window math, sanitizer, policy gate, ledger dedupe/sweep).
+- **Deterministic logic** → `uv run pytest tests/unit` (23 tests: window math, sanitizer, policy gate, ledger dedupe/sweep).
 - **Agent behaviour** → seed the ledger, then:
   ```bash
   uv run python -m scripts.seed_demo
@@ -113,7 +113,7 @@ Everything Cloud Run needs is handled in code / Terraform:
 - **Model auth via the service account** (Vertex, `GOOGLE_CLOUD_LOCATION=global`) — no keys in the image; the runtime SA is granted `roles/aiplatform.user` by Terraform.
 - **Scheduled sweep:** run [`scripts/daily_sweep.py`](scripts/daily_sweep.py) locally, or on Cloud via Cloud Scheduler → the ADK trigger endpoint.
 
-See [`DEMO.md`](DEMO.md) for the demo runbook and [`knowledge/adk-cloud-run/`](knowledge/adk-cloud-run/) for the deployment gotchas we hit and fixed (Dev-UI-over-proxy origin allowlist; `deploy` vs `infra` IAM). Full data-flow + security model in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+See [`DEMO.md`](DEMO.md) for the demo runbook. Full data-flow + security model in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Privacy & security (structural, not promised)
 
@@ -128,6 +128,7 @@ See [`DEMO.md`](DEMO.md) for the demo runbook and [`knowledge/adk-cloud-run/`](k
 ```
 app/                    ADK agent code
 ├── agent.py            Orchestrator (root agent) + App(name="app")
+├── fast_api_app.py     Cloud Run serving entrypoint (ADK FastAPI app + /feedback)
 ├── config.py           models, paths, decision thresholds
 ├── watchdog_core.py    pure window math (the agentic core) — unit-tested
 ├── data_sources.py     synthetic merchant policies + recall/price feeds
@@ -135,17 +136,24 @@ app/                    ADK agent code
 ├── tools/              the vault tool functions
 ├── ledger/             local SQLite ledger (stdlib sqlite3)
 ├── security/           sanitize (PII + injection) · audit log
-└── policy/             Policy Server (before_tool_callback gate + Vibe Diff)
+├── policy/             Policy Server (before_tool_callback gate + Vibe Diff)
+└── app_utils/          telemetry + Feedback typing (Cloud Run serving helpers)
 mcp_server/server.py    first-party Receipt Vault MCP (FastMCP)
 skills/                 4 SKILL.md modules (progressive disclosure, tiers)
 specs/                  Gherkin (acceptance = eval)
 scripts/                seed_demo · daily_sweep (scheduler entrypoint)
 sample_receipts/        synthetic receipts (incl. an injection test), no real PII
-tests/unit/             24 pure-logic tests mirroring the Gherkin scenarios
+tests/unit/             23 pure-logic tests mirroring the Gherkin scenarios
 deployment/             Cloud Run Terraform (single-project) from `scaffold enhance`
 DEMO.md                 test + demo runbook: seed prompts, capability sequence, video beats
 ARCHITECTURE.md         data flow + 7-pillar security model + deployment notes
+LICENSE                 Apache License 2.0
 ```
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE). Each source file carries the
+standard Apache 2.0 header.
 
 ---
 *Generated with `agents-cli` v0.5.0 (adk template) and built out per the Receipt Vault blueprint. See `CLAUDE.md` for the coding-agent workflow.*
