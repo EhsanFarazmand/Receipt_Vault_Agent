@@ -1,0 +1,16 @@
+TARGET
+Store #1842  Minneapolis, MN
+------------------------------
+Vendor: Target
+Date: 2026-04-09
+Item: blender
+Category: appliance
+Ninja Professional Blender      79.99
+------------------------------
+Subtotal                        79.99
+Tax                              5.60
+Total: 85.59
+Total: 79.99
+VISA ************1234
+Return policy: 90 days
+Thank you for shopping at Target!

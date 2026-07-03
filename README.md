@@ -2,139 +2,150 @@
 
 **The receipt agent that watches your return windows, warranties, recalls, and price drops — and acts before they expire.**
 
-> Drop a shoebox of receipt photos in a folder. Seconds later: a searchable ledger **and** a notification —
-> *"You can still return the blender for 6 more days — and it's $18 cheaper now. Want me to file the price-adjustment too?"*
+**Track:** Concierge Agents · Kaggle *AI Agents: Intensive Vibe Coding* Capstone with Google
 
-**Track:** Concierge Agents · **Built on:** Google [Agent Development Kit (ADK)](https://adk.dev) + the `agents-cli` workflow · **Capstone:** Kaggle *AI Agents: Intensive Vibe Coding* with Google.
+> **Wow moment:** Drop a shoebox of receipt photos in a folder. Seconds later you have a searchable ledger **and** a nudge:
+> *"You can still return the blender for 6 more days — and it's $18 cheaper now. Want me to file the price-adjustment too?"*
 
 ---
 
 ## The problem
 
-The receipt is the most-lost financial document in the home, and losing it is quietly expensive: missed return windows, warranties that lapse on a technicality, safety recalls nobody hears about, and price-protection refunds left on the table. We keep a shoebox — physical or digital — and only dig through it a day after the window closed.
+The receipt is the most-lost financial document in the home, and losing it is quietly expensive. Behind every receipt sits a cluster of deadlines nobody tracks: a **return window** that closes in 30/60/90 days, a **warranty** that must be registered, a **safety recall** announced months later, a **price-protection** window during which a refund of the difference is yours for the asking. We keep receipts in a shoebox and only look when something breaks — by then the window has closed.
 
-## Why an agent (not a single LLM call)
+## Why an agent, not a single LLM call
 
-A model can read *one* receipt — that's a **skill**. Receipt Vault's job is to **stand watch over every deadline attached to every purchase, every day, and act on the one that matters today.** Drop nothing new in and it *still* wakes, counts down every open window, polls the recall feed, watches for price drops, and escalates the single thing you need to act on. That standing watch — stateful, scheduled, autonomous, threshold-gated — is the irreducible "why an agent."
-
-## What it does
-
-1. **Intake** — you drop receipts into a watched folder. Each is OCR'd in a sandbox, sanitized, and extracted to `{vendor, date, total, last4, category, returnable}`.
-2. **Ledger** — entries are normalized, deduped, and written to a **local SQLite ledger** (with an `.xlsx` export). It answers *"how much did I spend on appliances?"*
-3. **Watchdog (the agentic core)** — a daily sweep computes days-left on return / price-protection / warranty windows, polls a recall feed, and raises a structured **action event** when a threshold is crossed.
-4. **Action / Drafting** — turns an event into a drafted return / price-adjustment / warranty / recall message and routes it to **you for approval before anything is sent** (the *Vibe Diff*).
-
----
+A model can read *one* receipt — that's a **skill**, one input → one output → done. The real problem is **standing watch over every deadline attached to every purchase, every day, and acting on the one that matters today.** That needs a stateful ledger across hundreds of receipts, a daily self-scheduled sweep, a decision threshold, per-merchant policy lookup, and an outbound action held for human approval — a multi-step, stateful, autonomous loop. **The "day 2" test:** drop nothing new in, and Receipt Vault still wakes, counts down every open window, polls recall + price feeds, and escalates the one thing you need today. That standing watch is the irreducible *why an agent*.
 
 ## Architecture (multi-agent, ADK)
 
-An **Orchestrator** (ADK root agent) routes each event to one of four specialist sub-agents, over a shared MCP tool surface, behind a zero-trust Policy Server. Full detail in [ARCHITECTURE.md](ARCHITECTURE.md).
+An **Orchestrator** (ADK root agent) routes each event to one of four specialists, each with a narrow tool set and its own security tier. Beneath them sit the **Receipt Vault MCP** tool surface and a **Policy Server** that intercepts every tool call.
 
 ```
-   Watched folder ─┐                  ┌──────────────────────┐   ┌── Daily scheduler
-   Forwarded email ─┼───────────────▶ │     ORCHESTRATOR     │ ◀─┘   (cron / Pub/Sub)
-   Drag-and-drop  ──┘                  │  (ADK root agent)    │
-                                       └──────────┬───────────┘
-             ┌──────────────┬─────────────────────┼───────────────────┬──────────────┐
-             ▼              ▼                     ▼                    ▼
-      ┌────────────┐ ┌────────────┐       ┌────────────┐       ┌────────────┐
-      │  INTAKE &  │ │  LEDGER    │       │  WATCHDOG  │       │  ACTION /  │
-      │ EXTRACTION │ │  AGENT     │       │  AGENT     │       │  DRAFTING  │
-      │ read-only  │ │ local write│       │ read-only  │       │ draft-only │
-      └────────────┘ └────────────┘       └────────────┘       └────────────┘
-             └──────────────┴──────────┬──────────┴────────────────┘
-                                       ▼
-                        ┌────────────────────────────────┐
-                        │  RECEIPT VAULT MCP SERVER       │  first-party tool surface
-                        │  + consumes Gmail/Calendar/Files│  (mcp_server/server.py)
-                        └────────────────┬───────────────┘
-                                         ▼
-                        ┌────────────────────────────────┐
-                        │  POLICY SERVER / ZERO-TRUST     │  intercepts every tool call
-                        │  (structural + semantic + Vibe  │  (app/security/policy_server.py)
-                        │   Diff)                         │
-                        └────────────────────────────────┘
+  Watched folder ─┐                    ┌─ Daily scheduler (cron / Cloud Scheduler)
+  Forwarded email ─┼──▶  ORCHESTRATOR  ◀┘
+  Drag-and-drop  ─┘     (routes by intent + state)
+        ┌───────────────┬───────────────┬────────────────┐
+        ▼               ▼               ▼                ▼
+   INTAKE &         LEDGER          WATCHDOG          ACTION /
+   EXTRACTION       AGENT           AGENT             DRAFTING
+   (Read/Draft)     (Action-local)  (Read-only) ◀ the (Draft-only,
+   OCR→sanitize→    normalize,      agentic core:     human sends)
+   extract→file     dedupe, query   daily window math,
+                                    recall+price feeds
+        └───────────────┴──────┬────────┴────────────────┘
+                               ▼
+              RECEIPT VAULT MCP  (scan_inbox, ocr_receipt, extract_fields,
+              (first-party tools) write_ledger, query_ledger, compute_windows,
+                               ▼  check_recalls, run_daily_sweep, draft_action)
+              POLICY SERVER / ZERO-TRUST GATEWAY
+              (structural + semantic gating, Vibe Diff)  ← every tool call
 ```
 
----
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full data flow and security model.
 
-## Course concepts → where in the code
+## Course concepts → where they live (all 6 implemented)
 
-The capstone asks for **≥3** of six concepts; Receipt Vault implements **all six**.
-
-| Course concept | Where in this repo |
-| :--- | :--- |
-| **Multi-agent system (ADK)** | [app/agent.py](app/agent.py) (Orchestrator) + [app/sub_agents/](app/sub_agents/) (4 specialists, per-agent tier) |
-| **MCP Server** | First-party [mcp_server/server.py](mcp_server/server.py); consumes Gmail/Calendar/Filesystem MCPs (see ARCHITECTURE) |
-| **Agent skills** | [skills/](skills/) — 4 `SKILL.md` with progressive disclosure + tier metadata; per-merchant policy resource loaded on demand |
-| **Security features** | [app/security/sanitize.py](app/security/sanitize.py) (PII redaction + injection defense), [app/security/policy_server.py](app/security/policy_server.py) (zero-trust gating + Vibe Diff) |
-| **Deployability** | Local-first (`adk web`), optional [Dockerfile](Dockerfile) + [deployment/](deployment/) (Cloud Run + Cloud Scheduler) |
-| **Antigravity** | Built spec-first ([specs/](specs/) Gherkin) in Google Antigravity — shown in the video |
-
----
+| Concept | Where in this repo |
+| :-- | :-- |
+| **Multi-agent (ADK)** | [`app/agent.py`](app/agent.py) (Orchestrator + `sub_agents`) and [`app/sub_agents/`](app/sub_agents/) (4 specialists, factory functions, per-agent tier). |
+| **MCP server** | First-party [`mcp_server/server.py`](mcp_server/server.py) (FastMCP, the "USB-C" tool surface). Consumes external Gmail/Calendar/Filesystem MCPs for outbound (see ARCHITECTURE). |
+| **Agent skills** | [`skills/`](skills/) — 4 `SKILL.md` modules with progressive disclosure + Read/Draft/Action tiers. |
+| **Security** | [`app/security/sanitize.py`](app/security/sanitize.py) (PII redaction + prompt-injection), [`app/security/audit.py`](app/security/audit.py) (audit trail), [`app/policy/policy_server.py`](app/policy/policy_server.py) (structural + semantic gating, Vibe Diff). |
+| **Deployability** | Local-first single command **plus a verified Cloud Run deploy** (private, Vertex-backed) — [`Dockerfile`](Dockerfile) + Terraform under [`deployment/`](deployment/); daily sweep via [`scripts/daily_sweep.py`](scripts/daily_sweep.py). |
+| **Antigravity / Spec-driven** | Gherkin specs in [`specs/receipt_vault.feature`](specs/receipt_vault.feature) drive the build; shown in the video. |
 
 ## Quickstart (local-first)
 
-Prereqs: Python 3.10+, [`uv`](https://docs.astral.sh/uv/), and the `agents-cli`
-(`uv tool install google-agents-cli`). A Google AI Studio key for the model.
-
 ```bash
-# 1. Configure (NO secrets in code). ADK loads the AGENT dir's env file — app/.env.
-cp app/.env.example app/.env   # then set GOOGLE_API_KEY  (Windows: copy app\.env.example app\.env)
+# 0. From the project dir, with uv installed (https://docs.astral.sh/uv/)
+cp .env.example .env          # add your GOOGLE_API_KEY (AI Studio) — never commit .env
+uv sync                       # install deps into .venv
 
-# 2. Install (generates uv.lock — commit it: real supply-chain pinning)
-uv sync
+# 1. Prove the logic (no model / no credentials needed) — 24 unit tests
+uv run pytest tests/unit -q
 
-# 3. Seed the demo ledger from the synthetic sample receipts
-uv run python scripts/seed_demo.py
+# 2. Seed synthetic demo receipts (dates relative to today, no real PII)
+uv run python -m scripts.seed_demo
 
-# 4a. Talk to the agent interactively
-agents-cli playground          # or: uv run adk web
+# 3. Run the daily watchdog sweep — the "day 2" standing watch (no LLM needed)
+uv run python -m scripts.daily_sweep
+#   → "Most urgent: You can still return the blender for 6 more day(s)."
 
-# 4b. Or run the standing-watch sweep directly
-uv run python scripts/daily_watchdog.py 2026-07-01
-#   → raises price-drop (monitor -$40), warranty-expiring + recall (headphones)
-
-# 5. Deterministic tests (code correctness) and behavioural eval (agent quality)
-uv run pytest -q                                          # 21 tests, no LLM
-uv run python scripts/local_eval.py --model gemini-flash-lite-latest --delay 20
-#   local AI-Studio eval (no GCP). agents-cli eval also works if you have a GCP project:
-#   agents-cli eval run --config tests/eval/eval_config.yaml
+# 4. Talk to the full multi-agent system (needs model credentials)
+agents-cli playground         # or: uv run adk run app
 ```
 
-See [docs/EVALUATION.md](docs/EVALUATION.md) for the eval methodology and results (21 pytest + 5/5 agent-behaviour cases).
+The first-party MCP server runs standalone over stdio:
+```bash
+uv run python -m mcp_server.server
+```
 
-Register the daily sweep with your OS scheduler (Task Scheduler / cron) so the agent
-keeps watch — snippets are in [scripts/daily_watchdog.py](scripts/daily_watchdog.py).
+> **Full demo runbook:** [`DEMO.md`](DEMO.md) has copy-paste seed prompts, the
+> six-capability demo sequence (watchdog, ledger query, injection defense, approval
+> gate), and a timed 5-minute video beat sheet.
 
----
+## Evaluation (tests-as-eval)
 
-## Security & privacy (structural, not promised)
+The Gherkin scenarios are both acceptance tests and the eval set.
+- **Deterministic logic** → `uv run pytest tests/unit` (24 tests: window math, sanitizer, policy gate, ledger dedupe/sweep).
+- **Agent behaviour** → seed the ledger, then:
+  ```bash
+  uv run python -m scripts.seed_demo
+  agents-cli eval run           # generate traces + grade (needs model creds)
+  ```
+  Metrics live in [`tests/eval/eval_config.yaml`](tests/eval/eval_config.yaml): `final_response_quality`, `multi_turn_tool_use_quality`, plus custom judges `security_injection_defense` and `approval_gate_respected`. Dataset: [`tests/eval/datasets/basic-dataset.json`](tests/eval/datasets/basic-dataset.json).
 
-- **Local-first:** OCR, extraction, ledger, and vault all live on your machine. Nothing leaves except model-reasoning calls you opt into and outbound drafts **you approve**.
-- **PII redaction before any model call:** card numbers → `****last4`, addresses/emails masked ([sanitize.py](app/security/sanitize.py)).
-- **Prompt-injection defense:** OCR text is treated as **data, never instructions** — a malicious "receipt" cannot make the agent exfiltrate the ledger (tested in [tests/unit/test_sanitize.py](tests/unit/test_sanitize.py) and [specs/prompt_injection.feature](specs/prompt_injection.feature)).
-- **Zero-trust Policy Server:** every tool call is gated — local writes confined to the vault, outbound recipients confined to the merchant domain, and every outbound send held behind a plain-language **Vibe Diff** approval ([policy_server.py](app/security/policy_server.py)).
-- **No secrets in the repo:** `.env` is git-ignored; only `.env.example` is committed. Dependencies are version-bounded + lock-filed (slopsquatting defense).
+## Deploy (Cloud Run — verified)
 
-## Testing philosophy
+Prototype-first: the agent runs fully locally. Cloud Run infra was added with
+`agents-cli scaffold enhance . --deployment-target cloud_run` (Terraform under
+[`deployment/`](deployment/)), and the service has been **deployed and driven
+end-to-end** — private, IAM-gated, running on Vertex AI.
 
-- `uv run pytest` — deterministic **code correctness** (sanitizer, policy gates, window math, ledger dedupe). 21 tests, no LLM.
-- `scripts/local_eval.py` — non-deterministic **agent behaviour** on the real multi-agent system, local-first via the ADK `InMemoryRunner` (no GCP needed). 5/5 cases pass. `agents-cli eval` is the Vertex-based equivalent if you have a GCP project. See [docs/EVALUATION.md](docs/EVALUATION.md).
+```bash
+agents-cli deploy --project <your-gcp-project>                       # explicit approval + GCP project
+gcloud run services proxy <service> --region <region> --project <p>  # private access to the Dev UI
+```
 
-Behavioural rules are pinned as Gherkin in [specs/](specs/) — the acceptance tests and the eval set at once.
+Everything Cloud Run needs is handled in code / Terraform:
+- **Writable paths auto-route to `/tmp`** on Cloud Run (`K_SERVICE` detection in [`app/config.py`](app/config.py)) — the container FS is otherwise read-only.
+- **Model auth via the service account** (Vertex, `GOOGLE_CLOUD_LOCATION=global`) — no keys in the image; the runtime SA is granted `roles/aiplatform.user` by Terraform.
+- **Scheduled sweep:** run [`scripts/daily_sweep.py`](scripts/daily_sweep.py) locally, or on Cloud via Cloud Scheduler → the ADK trigger endpoint.
+
+See [`DEMO.md`](DEMO.md) for the demo runbook and [`knowledge/adk-cloud-run/`](knowledge/adk-cloud-run/) for the deployment gotchas we hit and fixed (Dev-UI-over-proxy origin allowlist; `deploy` vs `infra` IAM). Full data-flow + security model in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+## Privacy & security (structural, not promised)
+
+- **Local-first** — OCR, extraction, ledger, and vault all live on your machine. `vault/`, `data/`, and `audit/` are git-ignored; your purchase history is never uploaded or tracked.
+- **PII redaction before any model call** — card numbers → last-4 only, addresses masked ([`sanitize.py`](app/security/sanitize.py)).
+- **Prompt-injection defense** — untrusted OCR text is neutralised + fenced and treated as *data, never instructions* (defends the Confused Deputy problem).
+- **Approval gate on every send** — the Policy Server blocks outbound actions and shows a plain-language **Vibe Diff**; the human sends.
+- **No secrets in code** — everything via `.env` (git-ignored); `.env.example` documents the vars.
 
 ## Repo layout
 
 ```
-app/            ADK app: agent.py (orchestrator), sub_agents/, tools/, domain/, security/
-mcp_server/     first-party Receipt Vault MCP server (stdio)
-skills/         4 SKILL.md modules (progressive disclosure, tiered)
-specs/          Gherkin acceptance/eval scenarios
-tests/          pytest (unit) + eval (dataset + config)
-scripts/        seed_demo.py, daily_watchdog.py (the standing watch)
-deployment/     Cloud Run + Cloud Scheduler notes; Dockerfile at root
-sample_receipts/ synthetic receipts (no real PII), incl. one injection attempt
+app/                    ADK agent code
+├── agent.py            Orchestrator (root agent) + App(name="app")
+├── config.py           models, paths, decision thresholds
+├── watchdog_core.py    pure window math (the agentic core) — unit-tested
+├── data_sources.py     synthetic merchant policies + recall/price feeds
+├── sub_agents/         intake · ledger · watchdog · action (per-agent tiers)
+├── tools/              the vault tool functions
+├── ledger/             local SQLite ledger (stdlib sqlite3)
+├── security/           sanitize (PII + injection) · audit log
+└── policy/             Policy Server (before_tool_callback gate + Vibe Diff)
+mcp_server/server.py    first-party Receipt Vault MCP (FastMCP)
+skills/                 4 SKILL.md modules (progressive disclosure, tiers)
+specs/                  Gherkin (acceptance = eval)
+scripts/                seed_demo · daily_sweep (scheduler entrypoint)
+sample_receipts/        synthetic receipts (incl. an injection test), no real PII
+tests/unit/             24 pure-logic tests mirroring the Gherkin scenarios
+deployment/             Cloud Run Terraform (single-project) from `scaffold enhance`
+DEMO.md                 test + demo runbook: seed prompts, capability sequence, video beats
+ARCHITECTURE.md         data flow + 7-pillar security model + deployment notes
 ```
 
-Apache-2.0. Built for the Kaggle *AI Agents: Intensive Vibe Coding* capstone.
+---
+*Generated with `agents-cli` v0.5.0 (adk template) and built out per the Receipt Vault blueprint. See `CLAUDE.md` for the coding-agent workflow.*

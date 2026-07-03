@@ -1,43 +1,51 @@
-"""Ledger sub-agent — TIER: Action-Allowed (local file only).
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Ledger Agent — TIER: Action (writes the LOCAL ledger only).
 
-Normalizes and deduplicates entries into the local SQLite ledger, answers
-natural-language queries over it, and exports the spreadsheet view. Its only writes
-are local; the Policy Server structurally confines them to the vault directory.
+Normalises and deduplicates entries into the local SQLite ledger and answers
+natural-language questions about spending.
 """
-
 from __future__ import annotations
 
 from google.adk.agents import Agent
 
-from app import config
-from app.tools.ledger_tools import export_ledger_xlsx, query_ledger, write_ledger
+from app.config import MODEL
+from app.policy.policy_server import policy_gate
+from app.tools import query_ledger, write_ledger
 
 _INSTRUCTION = """
 You are the Ledger specialist for Receipt Vault.
 
-Responsibilities:
-- Given structured receipt fields, call `write_ledger` to insert/update the entry.
-  The ledger dedupes on (merchant, name, purchase_date, total), so re-recording the
-  same receipt is safe.
-- Answer natural-language questions about spending with `query_ledger`
-  (e.g. "how much did I spend on appliances this year?").
-- Export the spreadsheet view with `export_ledger_xlsx` when asked.
+- To record a receipt: call `write_ledger` with the structured fields. It
+  deduplicates automatically, so re-recording the same receipt is safe.
+- To answer a spending question ("how much did I spend at Target this year?"):
+  call `query_ledger` with the user's question and summarise the result.
 
-Always pass ISO dates (YYYY-MM-DD). Use an empty string for unknown last4 or
-warranty_expires. You only ever write to the LOCAL ledger — never anything outbound.
+You may only write to the LOCAL ledger. Never send anything outbound.
 """
 
 
 def create_ledger_agent() -> Agent:
-    """Build the Ledger sub-agent (local action tier)."""
     return Agent(
         name="ledger_agent",
-        model=config.MODEL,
+        model=MODEL,
         description=(
-            "Writes/dedupes receipts into the local ledger and answers spending "
-            "queries. Use after fields are extracted, or for any question about what "
-            "was purchased or how much was spent."
+            "Writes normalised, deduplicated receipt entries to the local ledger "
+            "and answers natural-language spending queries. Use after intake has "
+            "extracted fields, or for any 'how much did I spend' question."
         ),
         instruction=_INSTRUCTION,
-        tools=[write_ledger, query_ledger, export_ledger_xlsx],
+        tools=[write_ledger, query_ledger],
+        before_tool_callback=policy_gate,
     )

@@ -1,18 +1,17 @@
-"""Receipt Vault ADK application package.
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Exposes ``root_agent`` and ``app`` for the ADK runner / agents-cli to discover
-(they also import ``app.agent`` directly). The package directory name ("app") must
-match ``App(name="app")`` in agent.py.
+from .agent import app
 
-The agent import is guarded so the deterministic layers (``app.domain``,
-``app.security``, ``app.tools``) remain importable and unit-testable in environments
-where ``google-adk`` is not installed. When ADK is present, ``root_agent`` and ``app``
-are re-exported here for convenience.
-"""
-
-try:  # google-adk present (the normal `uv sync` runtime)
-    from app.agent import app, root_agent
-
-    __all__ = ["app", "root_agent"]
-except ImportError:  # google-adk not installed — domain/security/tools still import
-    __all__ = []
+__all__ = ["app"]

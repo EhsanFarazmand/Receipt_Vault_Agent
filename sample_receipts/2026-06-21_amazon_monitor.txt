@@ -1,0 +1,12 @@
+amazon.com
+------------------------------
+Vendor: Amazon
+Date: 2026-06-21
+Item: 4k monitor
+Category: electronics
+Dell 27" 4K UHD Monitor        299.00
+------------------------------
+Total: 299.00
+Payment: Mastercard ************5678
+Warranty: 12 mo
+Order # 113-2287744-1

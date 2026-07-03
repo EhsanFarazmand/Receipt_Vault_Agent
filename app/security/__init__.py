@@ -1,20 +1,14 @@
-"""Security layer: prompt sanitization, PII redaction, and the Policy Server.
-
-These modules implement the course's Day-4 security concepts (7-pillar architecture,
-Context Hygiene, Zero-Trust gating, the Vibe Diff). They are plain, deterministic
-Python so they can be unit-tested without an LLM in the loop.
-"""
-
-from app.security.sanitize import (
-    RedactionResult,
-    SanitizationResult,
-    redact_pii,
-    sanitize_receipt_text,
-)
-
-__all__ = [
-    "RedactionResult",
-    "SanitizationResult",
-    "redact_pii",
-    "sanitize_receipt_text",
-]
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Security layer: PII redaction, prompt-injection sanitization, audit trail."""

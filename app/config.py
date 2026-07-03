@@ -1,79 +1,67 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Central configuration for Receipt Vault.
 
-All tunables live here so the agents, tools, and the daily Watchdog sweep read a
-single source of truth (course concept: *Harness = Model + Harness* — the harness
-supplies constraints and state around the model). Values fall back to sensible
-local-first defaults and can be overridden via environment variables (.env).
-"""
+Every runtime knob — model, local paths, and the *decision thresholds* that turn
+passive ledger data into an autonomous action (rule CR3) — is read from an
+environment variable with a safe, local-first default. Nothing sensitive is
+hard-coded, and the whole system runs offline on the user's machine by default.
 
+Thresholds live here (not scattered inside agent prompts) so they are typed,
+discoverable, and unit-testable in isolation from any LLM call.
+"""
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
-
-def _clean(raw: str) -> str:
-    """Strip an inline ``# comment`` and surrounding whitespace from an env value.
-
-    Different .env loaders disagree on inline comments (python-dotenv strips them,
-    a naive parser does not). Cleaning here makes config resilient no matter how the
-    value reached the environment."""
-    return raw.split("#", 1)[0].strip()
+# The scaffold validated `gemini-flash-latest`; we keep a single model constant
+# so we never drift into a hallucinated / 404 model name. (Per CLAUDE.md: do not
+# change the model unless explicitly asked.) The orchestrator and the four
+# specialists all use it — cheap, fast, and enough for this task decomposition.
+MODEL = os.getenv("RECEIPT_VAULT_MODEL", "gemini-flash-latest")
 
 
-def _int_env(name: str, default: int) -> int:
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    cleaned = _clean(raw)
-    return int(cleaned) if cleaned else default
+# Cloud Run (and most serverless container runtimes) mount a READ-ONLY root
+# filesystem with only /tmp writable, and always set K_SERVICE. When we detect
+# that, the writable working dirs default under /tmp so the ledger/vault/audit
+# writes don't crash the service. Locally, K_SERVICE is unset -> "." as before.
+# Explicit RECEIPT_VAULT_* env vars still override either default.
+_WRITABLE_BASE = "/tmp" if os.getenv("K_SERVICE") else "."
 
 
-def _float_env(name: str, default: float) -> float:
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    cleaned = _clean(raw)
-    return float(cleaned) if cleaned else default
+def _path(env: str, default: str) -> Path:
+    return Path(os.getenv(env, default)).expanduser().resolve()
 
 
-def _path_env(name: str, default: str) -> Path:
-    return Path(_clean(os.environ.get(name, default))).expanduser()
+@dataclass(frozen=True)
+class Settings:
+    # --- Working directories (local-first; on Cloud Run these live under /tmp) ---
+    inbox: Path = _path("RECEIPT_VAULT_INBOX", f"{_WRITABLE_BASE}/inbox")
+    store: Path = _path("RECEIPT_VAULT_STORE", f"{_WRITABLE_BASE}/vault")
+    db_path: Path = _path("RECEIPT_VAULT_DB", f"{_WRITABLE_BASE}/data/receipt_vault.db")
+    audit_path: Path = _path("RECEIPT_VAULT_AUDIT", f"{_WRITABLE_BASE}/audit/audit.log")
 
-# ---------------------------------------------------------------------------
-# Model
-# ---------------------------------------------------------------------------
-# `gemini-flash-latest` is a moving alias that always points at the current
-# Flash model — fast + cheap, which suits a system that sweeps hundreds of
-# receipts daily. Override per-environment with RECEIPT_VAULT_MODEL.
-MODEL: str = _clean(os.environ.get("RECEIPT_VAULT_MODEL", "gemini-flash-latest"))
+    # --- Decision thresholds (rule CR3): fire only when a window crosses these.
+    return_alert_days: int = int(os.getenv("RECEIPT_VAULT_RETURN_ALERT_DAYS", "7"))
+    warranty_alert_days: int = int(os.getenv("RECEIPT_VAULT_WARRANTY_ALERT_DAYS", "30"))
 
-# ---------------------------------------------------------------------------
-# Local-first storage layout (privacy pillar: the vault lives on the user's box)
-# ---------------------------------------------------------------------------
-INBOX_DIR: Path = _path_env("RECEIPT_VAULT_INBOX", "./inbox")
-VAULT_DIR: Path = _path_env("RECEIPT_VAULT_HOME", "./vault")
-LEDGER_DB: Path = _path_env("RECEIPT_VAULT_DB", str(VAULT_DIR / "ledger.sqlite"))
-# Append-only audit trail of what was read, drafted, and sent (Observability pillar).
-AUDIT_LOG: Path = _path_env("RECEIPT_VAULT_AUDIT", str(VAULT_DIR / "audit.log"))
-
-# ---------------------------------------------------------------------------
-# Watchdog decision thresholds (course concept CR3: the "decision threshold"
-# that separates an agent from a one-shot skill).
-# ---------------------------------------------------------------------------
-# Fire a "return-window-closing" event only when an item is still returnable AND
-# has this many days (or fewer) left on its window.
-RETURN_WINDOW_THRESHOLD_DAYS: int = _int_env("RECEIPT_VAULT_RETURN_THRESHOLD_DAYS", 7)
-# Fire a "warranty-expiring" event when an owned item's warranty lapses within N days.
-WARRANTY_THRESHOLD_DAYS: int = _int_env("RECEIPT_VAULT_WARRANTY_THRESHOLD_DAYS", 30)
-# A price drop must clear this dollar delta to be worth a price-protection claim.
-PRICE_DROP_MIN_DELTA: float = _float_env("RECEIPT_VAULT_PRICE_DROP_MIN_DELTA", 5.00)
+    def ensure_dirs(self) -> None:
+        """Create the local working directories on first use (idempotent)."""
+        for p in (self.inbox, self.store, self.db_path.parent, self.audit_path.parent):
+            p.mkdir(parents=True, exist_ok=True)
 
 
-def ensure_dirs() -> None:
-    """Create the local vault/inbox directories if they do not yet exist.
-
-    Idempotent — safe to call on every startup and from tools.
-    """
-    INBOX_DIR.mkdir(parents=True, exist_ok=True)
-    VAULT_DIR.mkdir(parents=True, exist_ok=True)
+settings = Settings()

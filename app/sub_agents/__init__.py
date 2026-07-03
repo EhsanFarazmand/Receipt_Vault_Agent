@@ -1,15 +1,22 @@
-"""The four specialist sub-agents Receipt Vault's Orchestrator delegates to.
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""The four specialist sub-agents behind the Orchestrator."""
 
-Each is exposed as a *factory function* (not a module-level instance) so the same
-agent can be attached under a parent without ADK's "agent already has a parent"
-error (see /google-agents-cli-adk-code). Narrow tool sets per agent keep context
-small (fights context rot) and let the security tier differ per agent.
-"""
-
-from app.sub_agents.intake_extraction import create_intake_agent
+from app.sub_agents.action import create_action_agent
+from app.sub_agents.intake import create_intake_agent
 from app.sub_agents.ledger_agent import create_ledger_agent
 from app.sub_agents.watchdog import create_watchdog_agent
-from app.sub_agents.action_drafting import create_action_agent
 
 __all__ = [
     "create_intake_agent",
